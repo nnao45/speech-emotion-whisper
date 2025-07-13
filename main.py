@@ -16,6 +16,7 @@ from audio_segmenter import AudioSegmenter
 from audio_metrics import AudioMetricsAnalyzer
 from emotion_analyzer import EmotionAnalyzer
 from result_display import ResultDisplay
+from transcription import TranscriptionAnalyzer
 
 
 
@@ -92,6 +93,22 @@ def main():
         action="store_true", 
         help="Show detailed audio metrics tables (requires --audio-metrics)"
     )
+    parser.add_argument(
+        "--transcription", 
+        action="store_true", 
+        help="Add speech-to-text transcription using OpenAI Whisper"
+    )
+    parser.add_argument(
+        "--whisper-model", 
+        choices=["tiny", "base", "small", "medium", "large"], 
+        default="base", 
+        help="Whisper model size for transcription (default: base)"
+    )
+    parser.add_argument(
+        "--language", 
+        default="auto", 
+        help="Language for transcription ('auto' for auto-detection, 'ja' for Japanese, etc.)"
+    )
     
     args = parser.parse_args()
     
@@ -116,6 +133,11 @@ def main():
         # Initialize analyzers
         analyzer = EmotionAnalyzer(model_type=args.model, use_gpu=not args.no_gpu)
         metrics_analyzer = AudioMetricsAnalyzer() if args.audio_metrics else None
+        transcription_analyzer = TranscriptionAnalyzer(
+            model_size=args.whisper_model, 
+            use_gpu=not args.no_gpu, 
+            language=args.language
+        ) if args.transcription else None
         
         if args.segment_mode:
             # Segment-based analysis
@@ -136,18 +158,32 @@ def main():
             # Analyze each segment with progress bar
             results = []
             metrics_results = []
+            transcription_results = []
             with Progress() as progress:
-                task_name = "[green]Analyzing emotions & metrics..." if metrics_analyzer else "[green]Analyzing emotions..."
+                task_parts = ["emotions"]
+                if metrics_analyzer:
+                    task_parts.append("metrics")
+                if transcription_analyzer:
+                    task_parts.append("transcription")
+                
+                task_name = f"[green]Analyzing {' & '.join(task_parts)}..."
                 task = progress.add_task(task_name, total=len(segments))
                 
                 for segment_path, start_time, end_time in segments:
                     try:
+                        # Emotion analysis
                         emotion_scores = analyzer.analyze_audio(segment_path)
                         results.append((start_time, end_time, emotion_scores))
                         
+                        # Audio metrics analysis
                         if metrics_analyzer:
                             audio_metrics = metrics_analyzer.analyze_audio_metrics(segment_path)
                             metrics_results.append((start_time, end_time, audio_metrics))
+                        
+                        # Transcription analysis
+                        if transcription_analyzer:
+                            transcription = transcription_analyzer.transcribe_audio(segment_path)
+                            transcription_results.append((start_time, end_time, transcription))
                         
                         progress.advance(task)
                     except Exception as e:
@@ -156,7 +192,11 @@ def main():
             
             # Display segment results
             if results:
-                display.show_segment_results(results, metrics_results if metrics_analyzer else None)
+                display.show_segment_results(
+                    results, 
+                    metrics_results if metrics_analyzer else None,
+                    transcription_results if transcription_analyzer else None
+                )
                 
                 # Show detailed metrics if requested
                 if args.metrics_detailed and metrics_results:

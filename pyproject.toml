@@ -16,6 +16,7 @@ dependencies = [
     "argparse",
     "rich>=13.0.0",
     "pydub>=0.25.1",
+    "openai-whisper>=20231117",
 ]
 
 
