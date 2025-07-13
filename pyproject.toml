@@ -1,0 +1,21 @@
+[project]
+name = "speech-emotion-whisper"
+version = "0.1.0"
+description = "Speech emotion recognition from MP4 files using OpenAI Whisper Large V3"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "transformers>=4.44.0",
+    "torch>=2.4.0",
+    "torchaudio>=2.4.0",
+    "librosa>=0.10.0",
+    "moviepy>=1.0.3",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "soundfile>=0.12.0",
+    "argparse",
+    "rich>=13.0.0",
+    "pydub>=0.25.1",
+]
+
+
