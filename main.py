@@ -5,7 +5,11 @@ import warnings
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-# Suppress pydub regex warnings
+# Suppress warnings
+warnings.filterwarnings("ignore", message="Passing `gradient_checkpointing` to a config initialization is deprecated")
+warnings.filterwarnings("ignore", message="Some weights of.*were not initialized from the model checkpoint")
+warnings.filterwarnings("ignore", message="You should probably TRAIN this model")
+warnings.filterwarnings("ignore", message="Conversion of an array with ndim > 0 to a scalar is deprecated")
 
 import librosa
 import numpy as np
@@ -307,7 +311,7 @@ class AudioMetricsAnalyzer:
         speaking_rate = len(onset_times) / duration if duration > 0 else 0
         
         return {
-            'tempo': float(tempo),
+            'tempo': float(tempo.item() if hasattr(tempo, 'item') else tempo),
             'speaking_rate': float(speaking_rate),
             'duration': float(duration)
         }
@@ -358,8 +362,10 @@ class EmotionAnalyzer:
         self.emotions = config["emotions"]
         
         try:
-            self.model = AutoModelForAudioClassification.from_pretrained(self.model_id).to(self.device)
-            self.feature_extractor = AutoFeatureExtractor.from_pretrained(self.model_id)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.model = AutoModelForAudioClassification.from_pretrained(self.model_id).to(self.device)
+                self.feature_extractor = AutoFeatureExtractor.from_pretrained(self.model_id)
         except Exception as e:
             print(f"Error loading model {self.model_id}: {e}")
             print("Falling back to Whisper model...")
@@ -367,8 +373,10 @@ class EmotionAnalyzer:
             fallback_config = self.model_configs["whisper"]
             self.model_id = fallback_config["model_id"]
             self.emotions = fallback_config["emotions"]
-            self.model = AutoModelForAudioClassification.from_pretrained(self.model_id).to(self.device)
-            self.feature_extractor = AutoFeatureExtractor.from_pretrained(self.model_id)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.model = AutoModelForAudioClassification.from_pretrained(self.model_id).to(self.device)
+                self.feature_extractor = AutoFeatureExtractor.from_pretrained(self.model_id)
     
     def analyze_audio(self, audio_path: str) -> Dict[str, float]:
         """
