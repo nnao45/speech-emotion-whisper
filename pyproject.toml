@@ -22,6 +22,7 @@ dependencies = [
     "ipykernel>=6.0.0",
     "matplotlib>=3.0.0",
     "seaborn>=0.11.0",
+    "japanize-matplotlib>=1.1.3",
 ]
 
 
