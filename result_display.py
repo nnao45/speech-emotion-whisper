@@ -63,15 +63,79 @@ class ResultDisplay:
         if detailed:
             self._show_detailed_scores(emotion_scores)
     
-    def show_segment_results(self, results: List[Tuple[float, float, Dict[str, float]]], 
+    def show_segment_results(self, results: List[Tuple[float, float, Dict[str, float]]] = None, 
                            metrics_results: List[Tuple[float, float, Dict[str, float]]] = None,
-                           transcription_results: List[Tuple[float, float, Dict[str, str]]] = None):
+                           transcription_results: List[Tuple[float, float, Dict[str, str]]] = None,
+                           speaker_results: List[Tuple[float, float, str]] = None):
         """Display results for segmented audio analysis."""
-        if metrics_results and transcription_results:
+        # Handle case where no results are provided
+        if not any([results, metrics_results, transcription_results, speaker_results]):
+            self.console.print("[yellow]⚠️ No analysis results to display.[/yellow]")
+            return
+        
+        if metrics_results and transcription_results and speaker_results and not results:
+            # Show metrics, transcription, and speaker table (no emotions)
+            table = Table(title="🎵 音声・文字起こし・話者タイムライン")
+            table.add_column("時間", style="cyan", no_wrap=True)
+            table.add_column("話者", style="bright_blue", no_wrap=True)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            table.add_column("ピッチ", style="yellow", no_wrap=True)
+            table.add_column("音量", style="white", no_wrap=True)
+            
+            for i, ((start_time, end_time, audio_metrics), (_, _, transcription), (_, _, speaker)) in enumerate(zip(metrics_results, transcription_results, speaker_results)):
+                table.add_row(
+                    f"{start_time:.1f}s",
+                    speaker,
+                    transcription.get('preview_text', '[空]'),
+                    f"{audio_metrics.get('pitch_mean', 0):.0f}Hz",
+                    f"{audio_metrics.get('rms_mean', 0):.3f}"
+                )
+        elif results and metrics_results and transcription_results and speaker_results:
+            # Show full combined table with all features
+            table = Table(title="🎭 感情・音声・文字起こし・話者タイムライン")
+            table.add_column("時間", style="cyan", no_wrap=True)
+            table.add_column("話者", style="bright_blue", no_wrap=True)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            table.add_column("感情", style="red", no_wrap=True)
+            table.add_column("信頼度", style="green", no_wrap=True)
+            table.add_column("ピッチ", style="yellow", no_wrap=True)
+            table.add_column("音量", style="white", no_wrap=True)
+            
+            for i, ((start_time, end_time, emotion_scores), (_, _, audio_metrics), (_, _, transcription), (_, _, speaker)) in enumerate(zip(results, metrics_results, transcription_results, speaker_results)):
+                dominant_emotion, confidence = max(emotion_scores.items(), key=lambda x: x[1])
+                dominant_emotion_jp = self._translate_emotion(dominant_emotion)
+                
+                table.add_row(
+                    f"{start_time:.1f}s",
+                    speaker,
+                    transcription.get('preview_text', '[空]'),
+                    dominant_emotion_jp,
+                    f"{confidence:.0%}",
+                    f"{audio_metrics.get('pitch_mean', 0):.0f}Hz",
+                    f"{audio_metrics.get('rms_mean', 0):.3f}"
+                )
+        elif metrics_results and transcription_results and not results:
+            # Show metrics and transcription table (no emotions)
+            table = Table(title="🎵 音声メトリクス・文字起こしタイムライン")
+            table.add_column("時間", style="cyan", no_wrap=True)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            table.add_column("ピッチ", style="yellow", no_wrap=True)
+            table.add_column("明度", style="blue", no_wrap=True)
+            table.add_column("音量", style="white", no_wrap=True)
+            
+            for i, ((start_time, end_time, audio_metrics), (_, _, transcription)) in enumerate(zip(metrics_results, transcription_results)):
+                table.add_row(
+                    f"{start_time:.1f}s",
+                    transcription.get('preview_text', '[空]'),
+                    f"{audio_metrics.get('pitch_mean', 0):.0f}Hz",
+                    f"{audio_metrics.get('brightness_score', 0):.0f}",
+                    f"{audio_metrics.get('rms_mean', 0):.3f}"
+                )
+        elif results and metrics_results and transcription_results:
             # Show combined emotion, audio metrics, and transcription table
             table = Table(title="🎭 感情・音声メトリクス・文字起こしタイムライン")
             table.add_column("時間", style="cyan", no_wrap=True)
-            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=15)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
             table.add_column("感情", style="red", no_wrap=True)
             table.add_column("信頼度", style="green", no_wrap=True)
             table.add_column("ピッチ", style="yellow", no_wrap=True)
@@ -91,12 +155,51 @@ class ResultDisplay:
                     f"{audio_metrics.get('brightness_score', 0):.0f}",
                     f"{audio_metrics.get('rms_mean', 0):.3f}"
                 )
-        elif transcription_results:
+        elif transcription_results and speaker_results and not results:
+            # Show transcription and speaker table (no emotions)
+            table = Table(title="📝 文字起こし・話者タイムライン")
+            table.add_column("時間", style="cyan", no_wrap=True)
+            table.add_column("長さ", style="magenta")
+            table.add_column("話者", style="bright_blue", no_wrap=True)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            
+            for i, ((start_time, end_time, transcription), (_, _, speaker)) in enumerate(zip(transcription_results, speaker_results)):
+                duration = end_time - start_time
+                table.add_row(
+                    f"{start_time:.1f}s",
+                    f"{duration:.1f}s",
+                    speaker,
+                    transcription.get('preview_text', '[空]')
+                )
+        elif results and transcription_results and speaker_results:
+            # Show emotion, transcription, and speaker table
+            table = Table(title="🎭 感情・文字起こし・話者タイムライン")
+            table.add_column("時間", style="cyan", no_wrap=True)
+            table.add_column("長さ", style="magenta")
+            table.add_column("話者", style="bright_blue", no_wrap=True)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            table.add_column("感情", style="red", no_wrap=True)
+            table.add_column("信頼度", style="green")
+            
+            for i, ((start_time, end_time, emotion_scores), (_, _, transcription), (_, _, speaker)) in enumerate(zip(results, transcription_results, speaker_results)):
+                dominant_emotion, confidence = max(emotion_scores.items(), key=lambda x: x[1])
+                dominant_emotion_jp = self._translate_emotion(dominant_emotion)
+                duration = end_time - start_time
+                
+                table.add_row(
+                    f"{start_time:.1f}s",
+                    f"{duration:.1f}s",
+                    speaker,
+                    transcription.get('preview_text', '[空]'),
+                    dominant_emotion_jp,
+                    f"{confidence:.1%}"
+                )
+        elif results and transcription_results:
             # Show emotion and transcription table
             table = Table(title="🎭 感情・文字起こしタイムライン")
             table.add_column("時間", style="cyan", no_wrap=True)
             table.add_column("長さ", style="magenta")
-            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=20)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
             table.add_column("感情", style="red", no_wrap=True)
             table.add_column("信頼度", style="green")
             
@@ -112,7 +215,7 @@ class ResultDisplay:
                     dominant_emotion_jp,
                     f"{confidence:.1%}"
                 )
-        elif metrics_results:
+        elif results and metrics_results:
             # Show combined emotion and audio metrics table
             table = Table(title="🎭 感情・音声メトリクスタイムライン")
             table.add_column("時間", style="cyan", no_wrap=True)
@@ -136,7 +239,52 @@ class ResultDisplay:
                     f"{audio_metrics.get('clarity_score', 0):.1f}",
                     f"{audio_metrics.get('rms_mean', 0):.3f}"
                 )
-        else:
+        elif speaker_results:
+            # Show speaker-only table
+            table = Table(title="👥 話者タイムライン")
+            table.add_column("時間", style="cyan", no_wrap=True)
+            table.add_column("長さ", style="magenta")
+            table.add_column("話者", style="bright_blue", no_wrap=True)
+            
+            for start_time, end_time, speaker in speaker_results:
+                duration = end_time - start_time
+                table.add_row(
+                    f"{start_time:.1f}s",
+                    f"{duration:.1f}s",
+                    speaker
+                )
+        elif transcription_results:
+            # Show transcription-only table (no emotions, metrics, or speakers)
+            table = Table(title="📝 文字起こしタイムライン")
+            table.add_column("時間", style="cyan", no_wrap=True)
+            table.add_column("長さ", style="magenta")
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            
+            for start_time, end_time, transcription in transcription_results:
+                duration = end_time - start_time
+                table.add_row(
+                    f"{start_time:.1f}s",
+                    f"{duration:.1f}s",
+                    transcription.get('preview_text', '[空]')
+                )
+        elif metrics_results:
+            # Show metrics-only table
+            table = Table(title="🎵 音声メトリクスタイムライン")
+            table.add_column("時間", style="cyan", no_wrap=True)
+            table.add_column("ピッチ", style="yellow", no_wrap=True)
+            table.add_column("明度", style="blue", no_wrap=True)
+            table.add_column("清涼度", style="magenta", no_wrap=True)
+            table.add_column("音量", style="white", no_wrap=True)
+            
+            for start_time, end_time, audio_metrics in metrics_results:
+                table.add_row(
+                    f"{start_time:.1f}s",
+                    f"{audio_metrics.get('pitch_mean', 0):.0f}Hz",
+                    f"{audio_metrics.get('brightness_score', 0):.0f}",
+                    f"{audio_metrics.get('clarity_score', 0):.1f}",
+                    f"{audio_metrics.get('rms_mean', 0):.3f}"
+                )
+        elif results:
             # Show emotion-only table
             table = Table(title="🎭 感情分析タイムライン")
             table.add_column("時間", style="cyan", no_wrap=True)
@@ -159,7 +307,7 @@ class ResultDisplay:
         self.console.print(table)
         
         # Show summary statistics
-        self._show_summary_stats(results, metrics_results, transcription_results)
+        self._show_summary_stats(results, metrics_results, transcription_results, speaker_results)
     
     def _show_detailed_scores(self, emotion_scores: Dict[str, float]):
         """Show detailed emotion scores table."""
@@ -180,35 +328,47 @@ class ResultDisplay:
         
         self.console.print(table)
     
-    def _show_summary_stats(self, results: List[Tuple[float, float, Dict[str, float]]], 
+    def _show_summary_stats(self, results: List[Tuple[float, float, Dict[str, float]]] = None, 
                           metrics_results: List[Tuple[float, float, Dict[str, float]]] = None,
-                          transcription_results: List[Tuple[float, float, Dict[str, str]]] = None):
+                          transcription_results: List[Tuple[float, float, Dict[str, str]]] = None,
+                          speaker_results: List[Tuple[float, float, str]] = None):
         """Show summary statistics for segment analysis."""
-        if not results:
+        # Use any available results to calculate basic stats
+        all_results = [r for r in [results, metrics_results, transcription_results, speaker_results] if r]
+        if not all_results:
             return
         
-        # Calculate emotion distribution
+        # Use the first available result set for timing information
+        timing_results = all_results[0]
+        
+        # Calculate emotion distribution (only if emotion results available)
         emotion_counts = {}
         total_duration = 0
         
-        for start_time, end_time, emotion_scores in results:
-            dominant_emotion, _ = max(emotion_scores.items(), key=lambda x: x[1])
-            emotion_counts[dominant_emotion] = emotion_counts.get(dominant_emotion, 0) + 1
-            total_duration += end_time - start_time
+        if results:
+            for start_time, end_time, emotion_scores in results:
+                dominant_emotion, _ = max(emotion_scores.items(), key=lambda x: x[1])
+                emotion_counts[dominant_emotion] = emotion_counts.get(dominant_emotion, 0) + 1
+                total_duration += end_time - start_time
+        else:
+            # Calculate duration from other result types
+            for start_time, end_time, _ in timing_results:
+                total_duration += end_time - start_time
         
         # Create summary table
         table = Table(title="📈 統計サマリー")
         table.add_column("項目", style="cyan")
         table.add_column("値", style="green")
         
-        table.add_row("総セグメント数", str(len(results)))
+        table.add_row("総セグメント数", str(len(timing_results)))
         table.add_row("総時間", f"{total_duration:.1f}秒")
-        table.add_row("平均セグメント長", f"{total_duration/len(results):.1f}秒")
+        table.add_row("平均セグメント長", f"{total_duration/len(timing_results):.1f}秒")
         
-        # Most common emotion
-        most_common = max(emotion_counts.items(), key=lambda x: x[1])
-        most_common_jp = self._translate_emotion(most_common[0])
-        table.add_row("最頻感情", f"{most_common_jp} ({most_common[1]} セグメント)")
+        # Most common emotion (only if emotion analysis was performed)
+        if emotion_counts:
+            most_common = max(emotion_counts.items(), key=lambda x: x[1])
+            most_common_jp = self._translate_emotion(most_common[0])
+            table.add_row("最頻感情", f"{most_common_jp} ({most_common[1]} セグメント)")
         
         # Add audio metrics summary if available
         if metrics_results:
@@ -237,6 +397,68 @@ class ResultDisplay:
             
             table.add_row("検出言語", most_common_lang.upper())
             table.add_row("転写成功率", f"{transcription_rate:.1f}%")
+        
+        # Add speaker summary if available
+        if speaker_results:
+            speakers = [speaker for _, _, speaker in speaker_results]
+            unique_speakers = list(set(speakers))
+            num_speakers = len(unique_speakers)
+            
+            # Count segments per speaker
+            speaker_counts = {}
+            for speaker in speakers:
+                speaker_counts[speaker] = speaker_counts.get(speaker, 0) + 1
+            
+            most_active_speaker = max(speaker_counts.items(), key=lambda x: x[1])[0] if speaker_counts else "不明"
+            
+            table.add_row("検出話者数", str(num_speakers))
+            table.add_row("最多発話者", f"{most_active_speaker} ({speaker_counts.get(most_active_speaker, 0)} セグメント)")
+        
+        self.console.print(table)
+    
+    def show_speaker_summary(self, speaker_results: List[Tuple[float, float, str]]):
+        """Show detailed speaker analysis summary."""
+        if not speaker_results:
+            return
+        
+        # Calculate speaker statistics
+        speaker_stats = {}
+        total_duration = 0
+        
+        for start_time, end_time, speaker in speaker_results:
+            duration = end_time - start_time
+            total_duration += duration
+            
+            if speaker not in speaker_stats:
+                speaker_stats[speaker] = {
+                    "total_time": 0,
+                    "segment_count": 0,
+                    "segments": []
+                }
+            
+            speaker_stats[speaker]["total_time"] += duration
+            speaker_stats[speaker]["segment_count"] += 1
+            speaker_stats[speaker]["segments"].append((start_time, end_time))
+        
+        # Create speaker summary table
+        table = Table(title="👥 話者分析サマリー")
+        table.add_column("話者", style="bright_blue")
+        table.add_column("発話時間", style="green")
+        table.add_column("発話割合", style="yellow")
+        table.add_column("セグメント数", style="cyan")
+        table.add_column("平均長さ", style="magenta")
+        
+        for speaker, stats in sorted(speaker_stats.items()):
+            percentage = (stats["total_time"] / total_duration * 100) if total_duration > 0 else 0
+            avg_length = stats["total_time"] / stats["segment_count"] if stats["segment_count"] > 0 else 0
+            
+            table.add_row(
+                speaker,
+                f"{stats['total_time']:.1f}秒",
+                f"{percentage:.1f}%",
+                str(stats["segment_count"]),
+                f"{avg_length:.1f}秒"
+            )
         
         self.console.print(table)
     

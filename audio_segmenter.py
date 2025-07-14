@@ -1,6 +1,6 @@
 import os
 import tempfile
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Optional
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 
@@ -26,12 +26,13 @@ class AudioSegmenter:
         self.max_segment_len = max_segment_len
         self.force_time_split = force_time_split
     
-    def segment_audio(self, audio_path: str) -> List[Tuple[str, float, float]]:
+    def segment_audio(self, audio_path: str, diarization_result: Optional[Dict] = None) -> List[Tuple[str, float, float]]:
         """
-        Split audio file into segments based on silence or time.
+        Split audio file into segments based on silence, time, or speaker changes.
         
         Args:
             audio_path: Path to audio file
+            diarization_result: Optional speaker diarization result for speaker-based segmentation
             
         Returns:
             List of tuples (segment_file_path, start_time, end_time)
@@ -39,6 +40,11 @@ class AudioSegmenter:
         try:
             # Load audio with pydub
             audio = AudioSegment.from_wav(audio_path)
+            
+            # Use speaker-based segmentation if diarization result is provided
+            if diarization_result and diarization_result.get("segments"):
+                print(f"Using speaker-based segmentation ({len(diarization_result['segments'])} speaker segments found)")
+                return self._speaker_based_split(audio, diarization_result)
             
             if self.force_time_split:
                 return self._time_based_split(audio)
@@ -120,6 +126,56 @@ class AudioSegmenter:
             
             current_pos = end_pos
             segment_idx += 1
+        
+        return segments
+    
+    def _speaker_based_split(self, audio: AudioSegment, diarization_result: Dict) -> List[Tuple[str, float, float]]:
+        """
+        Split audio based on speaker changes from diarization result.
+        
+        Args:
+            audio: AudioSegment object
+            diarization_result: Speaker diarization result containing speaker segments
+            
+        Returns:
+            List of tuples (segment_file_path, start_time, end_time)
+        """
+        segments = []
+        speaker_segments = diarization_result["segments"]
+        
+        # Sort speaker segments by start time to ensure proper order
+        speaker_segments = sorted(speaker_segments, key=lambda x: x["start"])
+        
+        for i, speaker_seg in enumerate(speaker_segments):
+            start_time_sec = speaker_seg["start"]
+            end_time_sec = speaker_seg["end"]
+            
+            # Convert to milliseconds for pydub
+            start_ms = int(start_time_sec * 1000)
+            end_ms = int(end_time_sec * 1000)
+            
+            # Ensure we don't exceed audio bounds
+            start_ms = max(0, start_ms)
+            end_ms = min(len(audio), end_ms)
+            
+            # Skip segments that are too short
+            segment_duration_ms = end_ms - start_ms
+            if segment_duration_ms < self.min_segment_len:
+                continue
+            
+            # Extract audio segment
+            chunk = audio[start_ms:end_ms]
+            
+            # Create temporary file for segment
+            segment_path = tempfile.mktemp(suffix=f"_speaker_segment_{i}.wav")
+            chunk.export(segment_path, format="wav")
+            
+            segments.append((segment_path, start_time_sec, end_time_sec))
+        
+        # If no valid segments were created, fallback to time-based splitting
+        if not segments:
+            print("No valid speaker segments found. Falling back to time-based segmentation.")
+            return self._time_based_split(audio)
         
         return segments
     
