@@ -78,7 +78,7 @@ class ResultDisplay:
             table = Table(title="🎵 音声・文字起こし・話者タイムライン")
             table.add_column("時間", style="cyan", no_wrap=True)
             table.add_column("話者", style="bright_blue", no_wrap=True)
-            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=60)
             table.add_column("ピッチ", style="yellow", no_wrap=True)
             table.add_column("音量", style="white", no_wrap=True)
             
@@ -95,7 +95,7 @@ class ResultDisplay:
             table = Table(title="🎭 感情・音声・文字起こし・話者タイムライン")
             table.add_column("時間", style="cyan", no_wrap=True)
             table.add_column("話者", style="bright_blue", no_wrap=True)
-            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=60)
             table.add_column("感情", style="red", no_wrap=True)
             table.add_column("信頼度", style="green", no_wrap=True)
             table.add_column("ピッチ", style="yellow", no_wrap=True)
@@ -118,7 +118,7 @@ class ResultDisplay:
             # Show metrics and transcription table (no emotions)
             table = Table(title="🎵 音声メトリクス・文字起こしタイムライン")
             table.add_column("時間", style="cyan", no_wrap=True)
-            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=60)
             table.add_column("ピッチ", style="yellow", no_wrap=True)
             table.add_column("明度", style="blue", no_wrap=True)
             table.add_column("音量", style="white", no_wrap=True)
@@ -135,7 +135,7 @@ class ResultDisplay:
             # Show combined emotion, audio metrics, and transcription table
             table = Table(title="🎭 感情・音声メトリクス・文字起こしタイムライン")
             table.add_column("時間", style="cyan", no_wrap=True)
-            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=60)
             table.add_column("感情", style="red", no_wrap=True)
             table.add_column("信頼度", style="green", no_wrap=True)
             table.add_column("ピッチ", style="yellow", no_wrap=True)
@@ -161,7 +161,7 @@ class ResultDisplay:
             table.add_column("時間", style="cyan", no_wrap=True)
             table.add_column("長さ", style="magenta")
             table.add_column("話者", style="bright_blue", no_wrap=True)
-            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=60)
             
             for i, ((start_time, end_time, transcription), (_, _, speaker)) in enumerate(zip(transcription_results, speaker_results)):
                 duration = end_time - start_time
@@ -177,7 +177,7 @@ class ResultDisplay:
             table.add_column("時間", style="cyan", no_wrap=True)
             table.add_column("長さ", style="magenta")
             table.add_column("話者", style="bright_blue", no_wrap=True)
-            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=60)
             table.add_column("感情", style="red", no_wrap=True)
             table.add_column("信頼度", style="green")
             
@@ -199,7 +199,7 @@ class ResultDisplay:
             table = Table(title="🎭 感情・文字起こしタイムライン")
             table.add_column("時間", style="cyan", no_wrap=True)
             table.add_column("長さ", style="magenta")
-            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=30)
+            table.add_column("テキスト", style="bright_white", no_wrap=True, max_width=60)
             table.add_column("感情", style="red", no_wrap=True)
             table.add_column("信頼度", style="green")
             
